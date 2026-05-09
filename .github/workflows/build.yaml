@@ -1,8 +1,11 @@
 name: Build and Push Docker Image
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: false
   workflow_dispatch: {}
 
 jobs:
@@ -19,10 +22,8 @@ jobs:
         id: tags
         run: |
           TAGS="beebecomebigbee/llm-inference-runpod:latest"
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"
-            TAGS="${TAGS},beebecomebigbee/llm-inference-runpod:${VERSION}"
+          if [ -n "${{ inputs.version }}" ]; then
+            TAGS="${TAGS},beebecomebigbee/llm-inference-runpod:${{ inputs.version }}"
           fi
           echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
 

@@ -14,6 +14,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.check.outputs.released }}
+      version: ${{ steps.check.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -25,8 +28,29 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install --save-dev semantic-release@23 @semantic-release/changelog@6 @semantic-release/git@10 @semantic-release/exec@6 conventional-changelog-conventionalcommits@7
+      - name: Get pre-release tag
+        id: before
+        run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
       - name: Release
-        id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release@23.0.7
+      - name: Check for new release
+        id: check
+        run: |
+          git fetch --tags origin
+          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
+          if [ "$LATEST" != "${{ steps.before.outputs.tag }}" ] && [ -n "$LATEST" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=${LATEST#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/build.yaml
+    with:
+      version: ${{ needs.release.outputs.version }}
+    secrets: inherit
